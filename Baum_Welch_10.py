@@ -134,7 +134,7 @@ def test_forwardbackward(observations, numiter):
 
     for count, sample in enumerate(observations):
         for iteration in range(numiter):
-            print "In sample: %d iteration number: %d" %(count, sample)
+            print "In sample: %d iteration number: %d" %(count, iteration)
             gamma, xi = maximization(sample, initialprob, trans, emis, NUM_STATES)
 
 if __name__ == "__main__":
