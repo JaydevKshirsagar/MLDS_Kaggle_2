@@ -478,7 +478,7 @@ def plot_angles_on_tail(num_sections):
                  [0.0, length * math.sin(angle)],
                  linewidth=0.25, c='k')
 
-    centers = calc_initial_state_centers(8) # TODO make parameter or load
+    centers = calc_initial_state_centers(100) # TODO make parameter or load
     plt.scatter(centers[:, 0], centers[:, 1])
 
     plt.axis([0.0, 3.0, 0.0, 3.0])
@@ -526,7 +526,7 @@ def assign_obs_num(num_sections, fname):
         num_sections: The number of sections to place angles, positive.
         fname: Name of the file which to save.
     """
-    np.savetxt(fname, calculate_obs_num(num_sections), delimiter=',')
+    np.savetxt(fname, calculate_obs_num(num_sections), delimiter=',', fmt='%i')
 
 
 def calc_initial_state_centers(num_states):
@@ -623,11 +623,30 @@ def init_matrices(num_states, num_observations, prob_stay, prob_move):
     save_simple_transition(num_states, prob_stay, prob_move,
                            'init-transition.csv')
     np.savetxt('init-emission.csv', emission, delimiter=',')
+    assign_obs_num(num_observations, 'init-observation-classes.csv')
 
 
 def distance(x1, y1, x2, y2):
     """Returns the distance between (x1, y1) and (x2, y2)."""
     return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
+
+
+def state_plot():
+    """
+    Plots the states Vish sent to me.
+    """
+    labels = load_tail_labels()
+    state_array = np.genfromtxt('STATES_Matlab.csv', delimiter=',')
+    x_coords = []
+    y_coords = []
+    colors = []
+    for entry in labels:
+        x_coords.append(entry[2])
+        y_coords.append(entry[3])
+        state = state_array[entry[0], entry[1] - 940]
+        colors.append(colorsys.hsv_to_rgb(state / 360.0, 0.9, 0.9))
+    plt.scatter(x_coords, y_coords, c=colors, marker='.', s=0.1)
+    plt.show()
 
 
 def main(args):
@@ -691,6 +710,8 @@ def main(args):
         prob_stay = float(args[3])
         prob_move = float(args[4])
         init_matrices(num_states, num_observations, prob_stay, prob_move)
+    elif args[0] == 'state_plot':
+        state_plot()
     else:
         print("No valid command entered.")
 
