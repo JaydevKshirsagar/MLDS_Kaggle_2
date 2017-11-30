@@ -21,13 +21,26 @@ LABEL_FILE = 'Label'
 LABEL_ADJUSTED_FILE = 'labels-adjusted.csv'
 
 
-# Labels, none if not yet loaded, otherwise a list of size 10,000 x 4,
+# Labels, None if not yet loaded, otherwise a list of size 10,000 x 4,
 # where each entry has the form [r, t, x, y]
 _LABELS = None
 
 
+# Labels of the final 60 points of each run. None if not yet loaded, otherwise
+# a list of size 10,000 x 4, where each entry has the form [r, t, x, y].
+_LABELS_60 = None
+
+
 # File name of the observations file
 OBSERVATIONS_FILE = 'Observations.csv'
+
+
+# The final 60 observations of all runs
+OBSERVATIONS_FINAL_60 = 'obs-60.csv'
+
+
+# The labels corresponding to the final 60 observations, without repeats
+LABELS_ADJUSTED_60 = 'labels-adj-60.csv'
 
 
 def load_obs():
@@ -40,6 +53,19 @@ def load_obs():
         2d np array of runs and timesteps, 10000 x 1000.
     """
     return np.genfromtxt(OBSERVATIONS_FILE, delimiter=',')
+
+
+def load_obs_tail():
+    """
+    Returns the tails of the observations.
+
+    There are 10,000 runs, each of 1,000 time steps. This function returns the
+    final 60 time steps of each run.
+
+    Returns:
+        2d np array of runs and time steps, 10,000 x 60.
+    """
+    return np.genfromtxt(OBSERVATIONS_FINAL_60, delimiter=',')
 
 
 def load_labels_adj():
@@ -66,6 +92,53 @@ def load_labels_adj():
                 result.append(entries)
     _LABELS = result # save loaded labels
     return result
+
+
+
+def load_tail_labels():
+    """
+    Returns the labels of the final 60 points in each run.
+
+    Returns:
+        A list of lists, where each inner list has length 4 and store
+        the information [r, t, x, y], where r and t are 0 indexed and
+        the coordinates x and y have been shifted by 1.5 to lie in the middle.
+    """
+    global _LABELS_60 # need to modify to save loaded labels
+    # if labels have already been loaded, just return, don't load again
+    if _LABELS_60:
+        return _LABELS_60
+
+    result = []
+    with open(LABELS_ADJUSTED_60) as label_file:
+        for line in label_file:
+            if line:
+                entries = line.strip().split(',')
+                entries[0] = int(entries[0])
+                entries[1] = int(entries[1])
+                entries[2] = float(entries[2])
+                entries[3] = float(entries[3])
+                result.append(entries)
+    _LABELS_60 = result # save loaded labels
+    return result
+
+
+def create_final_60():
+    """
+    Creates the files of each run's final 60 observations and labels.
+    """
+    obs = load_obs()
+    np.savetxt(OBSERVATIONS_FINAL_60, obs[:, -60:], delimiter=',')
+
+    labels = load_labels_adj()
+    new_labels = []
+    for entry in labels:
+        time = entry[1]
+        if time >= 940 and (len(labels) == 0 or labels[-1][1] != time):
+            new_labels.append([str(x) for x in entry])
+    with open(LABELS_ADJUSTED_60, 'w') as output_file:
+        for line in new_labels:
+            output_file.write(','.join(line) + '\n')
 
 
 # https://stackoverflow.com/questions/23861680/convert-spreadsheet-number-to-column-letter
@@ -358,7 +431,203 @@ def save_simple_transition(num_states, prob_stay, prob_move, fname):
         prob_move: The probability of moving to the next state, in [0.0, 1.0].
     """
     np.savetxt(fname, simple_transition(num_states, prob_stay, prob_move),
-        delimiter = ',')
+               delimiter = ',')
+
+
+def print_tail_angle_info():
+    """
+    Prints information about the final 60 runs.
+    """
+    obs = load_obs_tail()
+    min_theta = obs.min() # 0.14762
+    max_theta = obs.max() # 1.4168
+    print('min angle: {}'.format(min_theta))
+    print('max_angle: {}'.format(max_theta))
+
+
+def plot_angles_on_tail(num_sections):
+    """
+    Draws sections between the min and max theta values.
+    Parameters:
+        num_sections: The number of sections, positive.
+    """
+    labels = load_tail_labels()
+    # get angles for colors
+    obs_nums = calculate_obs_num(num_sections)
+    colors = [] # calculate color based on label's angle
+    x_coords = []
+    y_coords = []
+    for entry in labels:
+        x_coords.append(entry[2])
+        y_coords.append(entry[3])
+        class_num = obs_nums[entry[0], entry[1] - 940]
+        colors.append(colorsys.hsv_to_rgb(class_num / 360.0, 0.9, 0.9))
+    plt.scatter(x_coords, y_coords, marker='.', s=0.1, c=colors)
+    circle = plt.Circle((1.5, 1.5), 1.0, fill=False, color='b')
+    axis = plt.gca()
+    axis.add_artist(circle)
+
+    min_theta = 0.14762
+    max_theta = 1.4168
+    total_range = max_theta - min_theta
+    step = total_range / num_sections
+    length = 5.0 # length of lines, simply make longer than the area displayed
+    for i in range(num_sections + 1):
+        angle = min_theta + i * step
+        plt.plot([0.0, length * math.cos(angle)],
+                 [0.0, length * math.sin(angle)],
+                 linewidth=0.25, c='k')
+
+    centers = calc_initial_state_centers(8) # TODO make parameter or load
+    plt.scatter(centers[:, 0], centers[:, 1])
+
+    plt.axis([0.0, 3.0, 0.0, 3.0])
+    plt.show()
+
+
+def calculate_obs_num(num_sections):
+    """
+    Calculates a section number (observatio number) for each observation angle.
+
+    Parameters:
+        num_sections: The number of sections to place angles, positive.
+    Returns:
+        A 10,000 x 60 array of the tail converted to integer numbers in
+        the inclusive range [1, num_sections].
+    """
+    obs_angles = load_obs_tail()
+    obs_classes = np.zeros_like(obs_angles, dtype=np.int)
+    min_theta = 0.14762
+    max_theta = 1.4168
+    total_range = max_theta - min_theta
+    step = total_range / num_sections
+
+    num_runs, num_time_steps = obs_angles.shape
+    for i in range(num_runs):
+        for j in range(num_time_steps):
+            angle = obs_angles[i, j]
+            # find the angle's observation number (maybe could use mod here)
+            index = 0
+            total = min_theta
+            while total <= angle:
+                index += 1
+                total += step
+            obs_classes[i, j] = min(index, num_sections)
+    assert np.min(obs_classes) >= 1
+    assert np.max(obs_classes) <= num_sections
+    return obs_classes
+
+
+def assign_obs_num(num_sections, fname):
+    """
+    Writes to fname an assignment of angles to an integer observation number.
+
+    Parameters:
+        num_sections: The number of sections to place angles, positive.
+        fname: Name of the file which to save.
+    """
+    np.savetxt(fname, calculate_obs_num(num_sections), delimiter=',')
+
+
+def calc_initial_state_centers(num_states):
+    """
+    Returns the initial centroids of num_states.
+
+    Parameters:
+        num_states: The number of states, num_states >= 8, divisible by 4.
+    Returns:
+        2d np array num_states x 2 that is the x and y coordinates of
+        each of the state initial centroids.
+    """
+    assert num_states >= 8, 'Need at least 8 states, had {}'.format(num_states)
+    assert num_states % 4 == 0, 'Must be divisible by 4'
+    values = np.zeros((num_states, 2))
+    halfpi = math.pi / 2.0
+    quarter_num_states = num_states // 4
+    index = 0
+    nudge = math.pi / 36 # hack ;)
+    for i in range(quarter_num_states):
+        t = i / (quarter_num_states - 1)
+        dist = center_radius(t)
+        # t -= nudge / (quarter_num_states)
+        values[index, 0] = dist * math.cos(nudge + t * halfpi) + 1.5
+        values[index, 1] = dist * math.sin(nudge + t * halfpi) + 1.5
+        index += 1
+    for i in range(quarter_num_states):
+        t = i / (quarter_num_states - 1)
+        dist = center_radius(t)
+        values[index, 0] = dist * math.cos(nudge + halfpi + t * halfpi) + 1.5
+        values[index, 1] = dist * math.sin(nudge + halfpi + t * halfpi) + 1.5
+        index += 1
+    for i in range(quarter_num_states):
+        t = i / (quarter_num_states - 1)
+        dist = center_radius(t)
+        values[index, 0] = dist * math.cos(nudge + math.pi + t * halfpi) + 1.5
+        values[index, 1] = dist * math.sin(nudge + math.pi + t * halfpi) + 1.5
+        index += 1
+    for i in range(quarter_num_states):
+        t = i / (quarter_num_states - 1)
+        dist = center_radius(t)
+        values[index, 0] = dist * math.cos(nudge + 3.0 * halfpi + t * halfpi) + 1.5
+        values[index, 1] = dist * math.sin(nudge + 3.0 * halfpi + t * halfpi) + 1.5
+        index += 1
+    return values
+
+
+def center_radius(t):
+    """
+    Calculates the distance of the centroid cluster given a t parameter.
+
+    Parameters:
+        t: Parameter in [0.0, 1.0].
+    Returns:
+        The distance from the center given parameter value t, in [0.9, 1.1].
+    """
+    return 0.2 * t + 0.9
+
+
+def init_matrices(num_states, num_observations, prob_stay, prob_move):
+    """
+    Initializes the transition and emission initial matrices.
+
+    Parameters:
+        num_states: at least 8, multiple of 4
+        num_observations: positive
+        prob_stay: In [0.0, 1.0], sums to 1.0 with prob_move.
+        prob_move: In [0.0, 1.0], sums to 1.0 with prob_stay.
+    """
+    labels = load_tail_labels()
+    obs_nums = calculate_obs_num(num_observations)
+    centers = calc_initial_state_centers(num_states)
+
+    counts = np.zeros(num_states, dtype=np.int) # number of points in each state
+    emission = np.zeros((num_states, num_observations))
+    for entry in labels:
+        x_coord = entry[2]
+        y_coord = entry[3]
+        min_dist = math.inf
+        min_ind = -1
+        for i in range(num_states):
+            dist = distance(x_coord, y_coord, centers[i, 0], centers[i, 1])
+            if dist < min_dist:
+                min_dist = dist
+                min_ind = i
+        class_num = obs_nums[entry[0], entry[1] - 940]
+        counts[min_ind] += 1
+        emission[min_ind, class_num - 1] += 1 # make class number 0 indexed
+
+    # normalize emissions
+    for i in range(num_states):
+        emission[i, :] /= counts[i]
+
+    save_simple_transition(num_states, prob_stay, prob_move,
+                           'init-transition.csv')
+    np.savetxt('init-emission.csv', emission, delimiter=',')
+
+
+def distance(x1, y1, x2, y2):
+    """Returns the distance between (x1, y1) and (x2, y2)."""
+    return math.sqrt((x1 - x2)**2 + (y1 - y2)**2)
 
 
 def main(args):
@@ -404,6 +673,24 @@ def main(args):
         else:
             fname = args[4]
             save_simple_transition(num_states, prob_stay, prob_move, fname)
+    elif args[0] == 'create_final_60':
+        create_final_60()
+    elif args[0] == 'tail_info':
+        print_tail_angle_info()
+    elif args[0] == 'plot_tail_segments':
+        plot_angles_on_tail(int(args[1]))
+    elif args[0] == 'assign_obs_num':
+        num_observations = int(args[1])
+        fname = args[2]
+        assign_obs_num(num_observations, fname)
+    elif args[0] == 'calc_centers':
+        print(calc_initial_state_centers(int(args[1])))
+    elif args[0] == 'init_matrices':
+        num_states = int(args[1])
+        num_observations = int(args[2])
+        prob_stay = float(args[3])
+        prob_move = float(args[4])
+        init_matrices(num_states, num_observations, prob_stay, prob_move)
     else:
         print("No valid command entered.")
 
