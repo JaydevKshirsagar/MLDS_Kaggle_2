@@ -39,8 +39,28 @@ OBSERVATIONS_FILE = 'Observations.csv'
 OBSERVATIONS_FINAL_60 = 'obs-60.csv'
 
 
+# The final 500 observations of all runs
+OBSERVATIONS_FINAL_500 = 'obs-500.csv'
+
+
 # The labels corresponding to the final 60 observations, without repeats
 LABELS_ADJUSTED_60 = 'labels-adj-60.csv'
+
+
+# The labels corresponding to the final 500 observations, without repeats
+LABELS_ADJUSTED_500 = 'labels-adj-500.csv'
+
+
+# File of seemingly good results
+GOOD_STATES = 'good-STATES_Matlab-24.csv'
+
+
+# Labels [r, t, x, y, theta, state] with r and t indexed by 1
+ANTOINE_LABEL = 'antoine-labels.csv'
+
+
+# Labels [r, t, x+1.5, y+1.5, theta, state] with r and t
+VISH_LABEL = 'vish-labels.csv'
 
 
 def load_obs():
@@ -66,6 +86,10 @@ def load_obs_tail():
         2d np array of runs and time steps, 10,000 x 60.
     """
     return np.genfromtxt(OBSERVATIONS_FINAL_60, delimiter=',')
+
+
+def load_obs_500():
+    return np.genfromtxt(OBSERVATIONS_FINAL_500, delimiter=',')
 
 
 def load_labels_adj():
@@ -123,6 +147,20 @@ def load_tail_labels():
     return result
 
 
+def load_labels_500():
+    result = []
+    with open(LABELS_ADJUSTED_500) as label_file:
+        for line in label_file:
+            if line:
+                entries = line.strip().split(',')
+                entries[0] = int(entries[0])
+                entries[1] = int(entries[1])
+                entries[2] = float(entries[2])
+                entries[3] = float(entries[3])
+                result.append(entries)
+    return result
+
+
 def create_final_60():
     """
     Creates the files of each run's final 60 observations and labels.
@@ -141,12 +179,28 @@ def create_final_60():
             output_file.write(','.join(line) + '\n')
 
 
+def create_final_500():
+    obs = load_obs()
+    np.savetxt(OBSERVATIONS_FINAL_500, obs[:, -500:], delimiter=',')
+
+    labels = load_labels_adj()
+    new_labels = []
+    for entry in labels:
+        time = entry[1]
+        if time >= 500 and (len(labels) == 0 or labels[-1][1] != time):
+            new_labels.append([str(x) for x in entry])
+    with open(LABELS_ADJUSTED_500, 'w') as output_file:
+        for line in new_labels:
+            output_file.write(','.join(line) + '\n')
+
+
+
 # https://stackoverflow.com/questions/23861680/convert-spreadsheet-number-to-column-letter
 def col_to_letters(col_num):
     """
     Returns the string representing the column given by col_num.
 
-    Parameters:
+    Args:
         col_num: The number of the column to find, nonnegative, 0 indexed.
     Returns:
         The string representing col_num.
@@ -182,7 +236,7 @@ def theta(obs, run, time):
     """
     Returns the angle of run's timestep t.
 
-    Parameters:
+    Args:
         obs: 2d np array of runs and timesteps, 10000 x 1000.
             Each entry is the angle theta made at the run's time step.
         run: Run number, 0 <= run < 10,000.
@@ -243,7 +297,7 @@ def plot_locations(run):
     """
     Plots the labeled locations for the given run.
 
-    Parameters:
+    Args:
         run: The run to plot, 0 <= run < 6,000.
     """
     all_labels = load_labels_adj()
@@ -310,7 +364,7 @@ def plot_angles(run):
     """
     Plots the angle as a function of time step for the given run.
 
-    Parameters:
+    Args:
         run: The run to plot, 0 <= run < 6,000.
     """
     obs = load_obs()
@@ -388,7 +442,7 @@ def hsv_to_rgb(hue, sat, val):
     """
     Returns the [0, 1] rgb version of hsv.
 
-    Parameters:
+    Args:
         hue: The hue, in [0.0, 360.0).
         sat: The saturation, in [].
         val: The value, in .
@@ -404,7 +458,7 @@ def simple_transition(num_states, prob_stay, prob_move):
     """
     Returns an np array representing a num_states x num_states matrix.
 
-    Parameters:
+    Args:
         num_states: The number of states, num_states >= 4.
         prob_state: The probability of staying in the same state, in [0.0, 1.0].
         prob_move: The probability of moving to the next state, in [0.0, 1.0].
@@ -424,7 +478,7 @@ def save_simple_transition(num_states, prob_stay, prob_move, fname):
     """
     Saves a simple transition matrix to fname.
 
-    Parameters:
+    Args:
         fname: The filename to which to save the matrix.
         num_states: The number of states, num_states >= 4.
         prob_state: The probability of staying in the same state, in [0.0, 1.0].
@@ -438,7 +492,8 @@ def print_tail_angle_info():
     """
     Prints information about the final 60 runs.
     """
-    obs = load_obs_tail()
+    # obs = load_obs_tail()
+    obs = load_obs_500()
     min_theta = obs.min() # 0.14762
     max_theta = obs.max() # 1.4168
     print('min angle: {}'.format(min_theta))
@@ -448,7 +503,7 @@ def print_tail_angle_info():
 def plot_angles_on_tail(num_sections):
     """
     Draws sections between the min and max theta values.
-    Parameters:
+    Args:
         num_sections: The number of sections, positive.
     """
     labels = load_tail_labels()
@@ -489,16 +544,19 @@ def calculate_obs_num(num_sections):
     """
     Calculates a section number (observatio number) for each observation angle.
 
-    Parameters:
+    Args:
         num_sections: The number of sections to place angles, positive.
     Returns:
         A 10,000 x 60 array of the tail converted to integer numbers in
         the inclusive range [1, num_sections].
     """
-    obs_angles = load_obs_tail()
+    # obs_angles = load_obs_tail()
+    obs_angles = load_obs_500()
     obs_classes = np.zeros_like(obs_angles, dtype=np.int)
-    min_theta = 0.14762
-    max_theta = 1.4168
+    # min_theta = 0.14762 # for final 60
+    # max_theta = 1.4168 # for final 60
+    min_theta = 0.12031
+    max_theta = 1.4415
     total_range = max_theta - min_theta
     step = total_range / num_sections
 
@@ -522,7 +580,7 @@ def assign_obs_num(num_sections, fname):
     """
     Writes to fname an assignment of angles to an integer observation number.
 
-    Parameters:
+    Args:
         num_sections: The number of sections to place angles, positive.
         fname: Name of the file which to save.
     """
@@ -533,7 +591,7 @@ def calc_initial_state_centers(num_states):
     """
     Returns the initial centroids of num_states.
 
-    Parameters:
+    Args:
         num_states: The number of states, num_states >= 8, divisible by 4.
     Returns:
         2d np array num_states x 2 that is the x and y coordinates of
@@ -578,7 +636,7 @@ def center_radius(t):
     """
     Calculates the distance of the centroid cluster given a t parameter.
 
-    Parameters:
+    Args:
         t: Parameter in [0.0, 1.0].
     Returns:
         The distance from the center given parameter value t, in [0.9, 1.1].
@@ -590,40 +648,42 @@ def init_matrices(num_states, num_observations, prob_stay, prob_move):
     """
     Initializes the transition and emission initial matrices.
 
-    Parameters:
+    Args:
         num_states: at least 8, multiple of 4
         num_observations: positive
         prob_stay: In [0.0, 1.0], sums to 1.0 with prob_move.
         prob_move: In [0.0, 1.0], sums to 1.0 with prob_stay.
     """
-    labels = load_tail_labels()
-    obs_nums = calculate_obs_num(num_observations)
-    centers = calc_initial_state_centers(num_states)
+    # labels = load_tail_labels()
+    # labels = load_labels_500()
+    # obs_nums = calculate_obs_num(num_observations)
+    # centers = calc_initial_state_centers(num_states)
 
-    counts = np.zeros(num_states, dtype=np.int) # number of points in each state
-    emission = np.zeros((num_states, num_observations))
-    for entry in labels:
-        x_coord = entry[2]
-        y_coord = entry[3]
-        min_dist = math.inf
-        min_ind = -1
-        for i in range(num_states):
-            dist = distance(x_coord, y_coord, centers[i, 0], centers[i, 1])
-            if dist < min_dist:
-                min_dist = dist
-                min_ind = i
-        class_num = obs_nums[entry[0], entry[1] - 940]
-        counts[min_ind] += 1
-        emission[min_ind, class_num - 1] += 1 # make class number 0 indexed
+    # counts = np.zeros(num_states, dtype=np.int) # number of points in each state
+    # emission = np.zeros((num_states, num_observations))
+    # for entry in labels:
+    #     x_coord = entry[2]
+    #     y_coord = entry[3]
+    #     min_dist = math.inf
+    #     min_ind = -1
+    #     for i in range(num_states):
+    #         dist = distance(x_coord, y_coord, centers[i, 0], centers[i, 1])
+    #         if dist < min_dist:
+    #             min_dist = dist
+    #             min_ind = i
+    #     # class_num = obs_nums[entry[0], entry[1] - 940]
+    #     class_num = obs_nums[entry[0], entry[1] - 500]
+    #     counts[min_ind] += 1
+    #     emission[min_ind, class_num - 1] += 1 # make class number 0 indexed
 
-    # normalize emissions
-    for i in range(num_states):
-        emission[i, :] /= counts[i]
+    # # normalize emissions
+    # for i in range(num_states):
+    #     emission[i, :] /= counts[i]
 
     save_simple_transition(num_states, prob_stay, prob_move,
                            'init-transition.csv')
-    np.savetxt('init-emission.csv', emission, delimiter=',')
-    assign_obs_num(num_observations, 'init-observation-classes.csv')
+    # np.savetxt('init-emission.csv', emission, delimiter=',')
+    # assign_obs_num(num_observations, 'init-observation-classes.csv')
 
 
 def distance(x1, y1, x2, y2):
@@ -649,11 +709,96 @@ def state_plot():
     plt.show()
 
 
+def load_good_states():
+    """
+    Returns a numpy array representing the good states file.
+
+    Returns:
+        A 10,000 x 800 np array representing the assignment of state to point.
+        The r, t entry represents run r's step t+200, with t starting at 0.
+    """
+    return np.genfromtxt(GOOD_STATES, delimiter=',')
+
+
+def make_antoine_file():
+    """
+    Makes the label file for antonie.
+    """
+    good_states = load_good_states()
+    all_obs = load_obs()
+    labels = []
+    with open('Label') as label_file:
+        for line in label_file:
+            if line:
+                entries = line.strip().split(',')
+                run = int(entries[0])
+                entries[0] = run
+                time = int(entries[1])
+                entries[1] = time
+                entries[2] = float(entries[2])
+                entries[3] = float(entries[3])
+                angle = all_obs[run - 1, time - 1]
+                entries.append(angle)
+                state = good_states[run - 1, time - 201]
+                entries.append(int(state))
+                labels.append(entries)
+    with open(ANTOINE_LABEL, 'w') as output_file:
+        for label in labels:
+            output_file.write(','.join(str(x) for x in label) + '\n')
+
+
+def make_vish_file():
+    """
+    Makes the label file for vish.
+    """
+    good_states = load_good_states()
+    all_obs = load_obs()
+    labels = []
+    with open('Label') as label_file:
+        for line in label_file:
+            if line:
+                entries = line.strip().split(',')
+                run = int(entries[0])
+                entries[0] = run
+                time = int(entries[1])
+                entries[1] = time
+                entries[2] = float(entries[2]) + 1.5
+                entries[3] = float(entries[3]) + 1.5
+                angle = all_obs[run - 1, time - 1]
+                entries.append(angle)
+                state = good_states[run - 1, time - 201]
+                entries.append(int(state))
+                labels.append(entries)
+    labels = sorted(labels, key=lambda x: (int(x[0]), int(x[1])))
+    with open(VISH_LABEL, 'w') as output_file:
+        for label in labels:
+            output_file.write(','.join(str(x) for x in label) + '\n')
+
+
+def proj(x, y, angle):
+    """
+    Returns the projection of (x, y) onto the line determined by angle.
+
+    Args:
+        x: x coordinate of the point to project.
+        y: y coordinate of the point to project.
+        angle: The angle the projection line makes to the x axis, in (0, pi/2).
+    Returns:
+        A tuple (x', y') that is the projection of (x, y) onto the line
+        through the origin at an angle of 'angle' from the x axis.
+    """
+    to_proj = np.array([x, y])
+    proj_line = np.array([math.cos(angle), math.sin(angle)])
+    scalar = to_proj.dot(proj_line) / proj_line.dot(proj_line)
+    projection = scalar * proj_line
+    return projection[0], projection[1]
+
+
 def main(args):
     """
     Runs the script.
 
-    Parameters:
+    Args:
         args: Determines what test to run.
     """
     if not args or args[0] == 'help':
@@ -712,6 +857,12 @@ def main(args):
         init_matrices(num_states, num_observations, prob_stay, prob_move)
     elif args[0] == 'state_plot':
         state_plot()
+    elif args[0] == 'create_500':
+        create_final_500()
+    elif args[0] == 'make_antoine_file':
+        make_antoine_file()
+    elif args[0] == 'make_vish_file':
+        make_vish_file()
     else:
         print("No valid command entered.")
 
