@@ -19,7 +19,11 @@
 
 In this competition we are given a robot that is moving around in~$\R^2$.
 The robot makes $\num{10000}$~runs, and for $\num{1000}$~timesteps we observe the angle~$\theta$ that the robot's position makes with the $x$-axis.
-We are not given the robot's precise ${(x, y)}$~location.
+But are not given the robot's precise ${(x, y)}$~location, and the angle itself does not determine directly the robot's position.
+The true position could be anywhere along the line passing through the origin and making angle~$\theta$ with the $x$-axis.
+
+Our task is to determine the robot's ${(x, y)}$-position on the $\num{1001}$st~timestep as accurately as possible, with accuracy determined by Root Mean Square Error.
+Our methods achieve an accuracy score of~$\bm{0.26233}$.
 
 \section{Determining the Observer's Position}\label{sec:determ-observ-posit}
 
@@ -48,7 +52,7 @@ We compute the average of radius of these points to $(1.5, 1.5)$ to see that thi
 Plotting the labeled points in \cref{fig:label-locations}, we see that the robot is moving roughly in a circle of radius~$1$ centered at~$(1.5, 1.5)$, with kinks occurring at the top, bottom, left, and right of the circle.
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.6\textwidth]{images/label-locations}
+  \includegraphics[width=0.5\textwidth]{images/label-locations}
   \caption{Locations of the robot given as labels.}\label{fig:label-locations}
 \end{figure}
 
@@ -113,31 +117,63 @@ The emission matrix is defined by
 \begin{equation*}
   b_{i, k} = \Pr(X_t = k \mid S_t = i),
 \end{equation*}
-that is, each entry~$b_{i, k}$ give the probability of the observation being~$k$ given state~$i$.
+that is, each entry~$b_{i, k}$ gives the probability of the observation~$k$ being emitted given state~$i$.
 With $N$~states and $K$~possible observations, $B$ is an ${N \times K}$-matrix.
 In~\cref{sec:baum-welch} we describe our process for estimating these matrices using the Baum Welch algorithm.
 
 \section{Baum Welch}\label{sec:baum-welch}
 
 The Baum Welch algorithm is an Expectation Maximization (EM) algorithm for learning the parameters of Hidden Markov Models.
-We use a forward-backwards algorithm for the expectation step and then update the HMM parameters in the maximization step.
+We use a forward-backwards algorithm to perform inference for the expectation step and then update the HMM parameters in the maximization step.
 We thereby find the maximum likelihood estimate of the parameters of the model.
 The algorithm takes as parameters a triple~$(A, B, \pi)$, where $A$~and~$B$ are the transition and emission matrices and $\pi$ is the initial state distribution, that is, the probability of the first state being state~$i$ is given by ${\pi_i = \Pr(S_1 = i)}$.
 
-% TODO explain expectation step
+\subsection{Explanation of Algorithm}\label{sec:expl-algor}
 
-% TODO explain maximization step
+Let $N$ be the number of states, $K$ be the number of observations, and $T$ be the number of time steps.
+
+For the forward procedure we calculate ${\alpha_i(t) = \Pr(X_1 = x_1, X_2 = x_2, \ldots, X_t = x_t, S_t = i \mid A, B, \pi)}$, which is the probability of obtaining observations~${y_1, y_2, \ldots, y_t}$ and being in state~$i$ at time~$t$.
+We recursively compute
+\begin{align*}
+  \alpha_i (t) &:= \pi_i b_{i, x_1},\\
+  \alpha_i (t + 1) &:= b_{i, x_{t+1}} \sum_{j=1}^N \alpha_j(t) a_{j, i}.
+\end{align*}
+For the backward procedure we calculate ${\beta_i(t) = \Pr(X_{t+1} = x_{t+1}, \ldots, X_T = x_T \mid S_t = i, A, B, \pi)}$, the probability of the observations ${x_{t+1}, \ldots, x_T}$ occurring given the $t$th~state is state~$i$.
+Again we compute recursively to set
+\begin{align*}
+  \beta_i(T) &:= 1,\\
+  \beta_t(t) &:= \sum_{j=1}^N \beta_j(t+1) a_{i, j} b_{j, x_{t+1}}.
+\end{align*}
+
+Before performing the updates, we first calculate two temporary variables.
+We define $\gamma_i(t)$ to be the probability of being in state~$i$ at time~$t$ given a set of observations~${X = (X_1 = x_2, \ldots, X_T = x_T)}$.
+Applying Bayes's theorem we have
+\begin{equation*}
+  \gamma_i(t) := \Pr(S_t = i \mid X, A, B, \pi) = \frac{\Pr(S_t = i, X \mid A, B, \pi)}{\Pr(X \mid A, B, \pi)} = \frac{\alpha_{i}(t) \beta_i(t)}{\sum_{j = 1}^N \alpha_j(t) \beta_j(t)}.
+\end{equation*}
+Next we define $\xi_{i, j}(t)$ to be the probability of being in state~$i$ at time~$t$ and state~$j$ at time~$t + 1$ given a sequence of observations~$X$ with parameters $A$,~$B$, and~$\pi$.
+\begin{align*}
+  \xi_{i, j}(t) &:= \Pr(S_t = i, S_{t+1} = j \mid X, A, B, \pi) = \frac{\Pr(S_t = i, S_{t+1} = j, X \mid A, B, \pi)}{\Pr(X \mid A, B, \pi)},\\
+  &= \frac{\alpha_t(t) a_{i, j} \beta_j(t + 1) b_{j, t+1}}{\sum_{i=1}^N \sum_{j=1}^N \alpha_i(t) a_{i, j} \beta_j(t+1) b_{j, t+1}}.
+\end{align*}
+We use these temporary variables to update the parameters of our Hidden Markov Model.
+The vector~$\pi$ is updated so each entry~$\pi_i$ is the probability of being in state~$i$ at the first time~${t = 1}$.
 \begin{equation*}
   \pi_i := \gamma_i(1)
 \end{equation*}
+The values~$a_{i, j}$ are updated to be the expected number of transitions from state $i$~to~$j$ divided the total number of transitions from~$i$ (including from $i$ back to itself).
 \begin{equation*}
   a_{i, j} := \frac{\sum_{t=1}^{T-1}\xi_{i, j}(t)}{\sum_{t=1}^{T-1}\gamma_i(t)}
 \end{equation*}
+And finally the values~$b_{i, k}$ is set to the expected number of times the observation~$k$ is emitted from state~$i$ over the total number of times state~$i$ occurs.
 \begin{equation*}
-  b_{i,k} := \frac{\sum_{t=1}^T \1_{X_t = k}\gamma_i(t)}{\sum_{t=1}^T \gamma_i(t)} % TODO figure out indicator notation
+  b_{i,k} := \frac{\sum_{t=1}^T \1_{X_t = k}\gamma_i(t)}{\sum_{t=1}^T \gamma_i(t)}
 \end{equation*}
 
-% TODO explain choice of parameters and how they effect running time
+\subsection{Numerical and Running Time Issues}\label{sec:numer-runn-time}
+
+\subsection{Choice of Parameters}\label{sec:choice-parameters}
+
 \begin{figure}[h]
   \centering
   \begin{subfigure}[h]{0.48\textwidth}
