@@ -174,6 +174,19 @@ And finally the values~$b_{i, k}$ is set to the expected number of times the obs
 
 \subsection{Choice of Parameters}\label{sec:choice-parameters}
 
+One way to initialize the parameters $A$,~$B$, and $\pi$ of the Baum Welch algorithm is to do so randomly.
+However, as noted in \cref{sec:numer-runn-time}, doing so means the algorithm takes a long time to converge.
+By choosing initialization parameters close to what we expect the algorithm's output to be, we can decrease the number of steps that the algorithm requires to converge.
+
+To initialize the transition matrix, we take advantage of the fact that the robot is moving rather slowly around the circle.
+That is, in only one step, the robot is likely either to stay in the same state or move to a state with a location close to its previous state's location.
+It will not make large transitions, e.g. from the bottom to the top of the circle, in a single step.
+Thus it makes sense to initialize many values of the transition matrix to be~$0$, as there are only a small number of states to which the robot may transition from any given state.
+
+Further, the Baum Welch converges to a local maximum.
+And by changing the initial parameters we can change the local maximum to which the algorithm converges.
+Thus we choose to initialize our transition matrix so that the states correspond to sections of the robot's path.
+In \cref{fig:init-trans-pos} we show how we pick locations to guide our construction of the transition matrix.
 \begin{figure}[h]
   \centering
   \begin{subfigure}[h]{0.48\textwidth}
@@ -186,10 +199,38 @@ And finally the values~$b_{i, k}$ is set to the expected number of times the obs
   \end{subfigure}
   \caption{Initial state positions for different numbers of states.}\label{fig:init-trans-pos}
 \end{figure}
+We pick points along the robot's path and choose transition probabilities either that the robot stays in the same state or moves to the next state.
+For example, for $4$~states, our transition matrix is
+\begin{equation*}
+  \begin{bmatrix}
+    0.75 & 0.25 & 0    & 0\\
+    0    & 0.75 & 0.25 & 0\\
+    0    & 0    & 0.75 & 0.25\\
+    0.25 & 0    & 0    & 0.75
+  \end{bmatrix}
+\end{equation*}
+% TODO observations of this matrix as we run our algorithm
+
+% TODO emission matrix numerical issues
+
+Further, we decide not to use any of the first $\num{200}$~time steps in our model.
+The robot starts at~${(1.5, 1.5)}$, but by the time we start receiving labels at time~$\num{201}$, the robot has already reached its general orbit around its path.
+We don't have any labels for the first~$\num{200}$ time steps, so using these values ends up making it more difficult for our algorithms to estimate the behavior of the robot at the tail of its runs, which is the behavior in which we are most interested to predict the $\num{1001}$st location.
+When we try using these initial observations, our Baum Welch algorithm outputs a state to keep track of the values in the middle.
+\Cref{fig:state-in-the-middle} shows how these initial observations result in points being assigned to a state that does not correspond to a location in the tail of the robot's path.
+\begin{wrapfigure}{o}{0.5\textwidth}
+  \centering
+  \includegraphics[width=0.48\textwidth]{images/state-in-the-middle}
+  \caption[middle]{The green points are assigned to a state representing the middle of the circle through which the robot finishes moving by time~$200$.}\label{fig:state-in-the-middle}
+\end{wrapfigure}
 
 \section{Viterbi}\label{sec:viterbi}
 
+% how we use viterbi to determine the most likely states given the parameters computer in Baum Welch and the observed angles
 
+\section{Mapping States to Locations}\label{sec:mapp-stat-locat}
+
+% how we use labels to map states to locations
 
 \end{document}
 
