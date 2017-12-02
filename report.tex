@@ -4,6 +4,8 @@
 \usepackage{tikz}
 \usetikzlibrary{positioning}
 
+\usepackage[group-separator={,},group-minimum-digits={4}]{siunitx}
+
 \title{Machine Learning for Data Science - Competition 2}
 \author{Antoine Klopocki, Jaydev Kshirsagar, Travis Westura, Vishisht Tiwari\\Kaggle Team Name: Antravishjay}
 \date{\vspace{-5ex}} % vspace hack to remove date without looking into titling package
@@ -16,7 +18,7 @@
 \section{Introduction}\label{sec:introduction}
 
 In this competition we are given a robot that is moving around in~$\R^2$.
-The robot makes $10000$~runs, and for $1000$~timesteps we observe the angle~$\theta$ that the robot's position makes with the $x$-axis.
+The robot makes $\num{10000}$~runs, and for $\num{1000}$~timesteps we observe the angle~$\theta$ that the robot's position makes with the $x$-axis.
 We are not given the robot's precise ${(x, y)}$~location.
 
 \section{Determining the Observer's Position}\label{sec:determ-observ-posit}
@@ -40,6 +42,18 @@ Since there are two unknowns $a$~and~$b$, we pick two labeled points and solve t
 We use the points from run~$1$ time steps $205$~and~$216$.
 Solving the system of equations yields the position of the location observer as~$(1.5, 1.5)$.
 Using this position, we consider the observation angles as being measured at~$(0, 0)$.
+
+Further, we can use the $\num{600000}$ labeled points to gain intuition about the robot's movement.
+We compute the average of radius of these points to $(1.5, 1.5)$ to see that this average is approximately~$1$.
+Plotting the labeled points in \cref{fig:label-locations}, we see that the robot is moving roughly in a circle of radius~$1$ centered at~$(1.5, 1.5)$, with kinks occurring at the top, bottom, left, and right of the circle.
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.6\textwidth]{images/label-locations}
+  \caption{Locations of the robot given as labels.}\label{fig:label-locations}
+\end{figure}
+
+Every run starts the robot at~$(1.5, 1.5)$.
+But we are not given any labels for the first $200$~runs, and we see that the robot stabilizes into its standard path by the time we start obtaining labels for its location.
 
 \section{Hidden Markov Models (HMM's)}\label{sec:hidden-markov-models}
 
@@ -113,8 +127,29 @@ The algorithm takes as parameters a triple~$(A, B, \pi)$, where $A$~and~$B$ are 
 % TODO explain expectation step
 
 % TODO explain maximization step
+\begin{equation*}
+  \pi_i := \gamma_i(1)
+\end{equation*}
+\begin{equation*}
+  a_{i, j} := \frac{\sum_{t=1}^{T-1}\xi_{i, j}(t)}{\sum_{t=1}^{T-1}\gamma_i(t)}
+\end{equation*}
+\begin{equation*}
+  b_{i,k} := \frac{\sum_{t=1}^T \1_{X_t = k}\gamma_i(t)}{\sum_{t=1}^T \gamma_i(t)} % TODO figure out indicator notation
+\end{equation*}
 
 % TODO explain choice of parameters and how they effect running time
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[h]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{images/init-states-24}
+    \caption{N = 24.}\label{fig:24-states}
+  \end{subfigure}
+  \begin{subfigure}[h]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{images/init-states-48}
+    \caption{N = 48.}\label{fig:48-states}
+  \end{subfigure}
+  \caption{Initial state positions for different numbers of states.}\label{fig:init-trans-pos}
+\end{figure}
 
 \section{Viterbi}\label{sec:viterbi}
 
