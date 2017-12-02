@@ -1,0 +1,242 @@
+\ProvidesPackage{mystyle}
+
+\usepackage{mathtools}
+\usepackage{amssymb}
+\usepackage{amsfonts}
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{bm}
+\usepackage[shortlabels]{enumitem}
+\usepackage{esvect}
+\usepackage[top=1.5in,bottom=0.5in,right=1in,left=1in,headheight=65pt,headsep=1cm]{geometry}
+\usepackage{graphicx}
+\usepackage{wrapfig}
+\usepackage{DejaVuSansMono}  % Use this font in lstlistings
+\usepackage{lipsum}
+\usepackage{listings}
+\usepackage{mathtools}
+\usepackage{marginnote}
+\usepackage{subfiles}
+\usepackage{subcaption}
+\usepackage{import}
+\usepackage[utf8]{inputenc}
+\usepackage{csquotes}
+\usepackage[english]{babel}
+%\usepackage[backend=biber, natbib=true]{biblatex}  This caused problems using latexmk.  I need to investigate
+\usepackage[xspace]{ellipsis}
+\usepackage{xcolor}
+\usepackage{mdframed}
+\usepackage{perpage}
+\usepackage{varioref}
+\usepackage{hyperref}
+\usepackage[noabbrev]{cleveref}
+\usepackage[all]{nowidow}
+\usepackage{titling}
+
+\MakePerPage{footnote}
+
+\pagestyle{plain}
+
+\lstset{basicstyle=\ttfamily\small}
+
+\everymath{\displaystyle}
+
+\definecolor{grayframe}{gray}{0.7}
+
+\theoremstyle{plain}
+\newmdtheoremenv[backgroundcolor=grayframe, hidealllines=true, innertopmargin=0pt]{thm}{Theorem}[section]
+\newmdtheoremenv[backgroundcolor=grayframe, hidealllines=true, innertopmargin=0pt]{cor}[thm]{Corollary}
+\newmdtheoremenv[backgroundcolor=grayframe, hidealllines=true, innertopmargin=0pt]{lemma}[thm]{Lemma}
+\newmdtheoremenv[backgroundcolor=grayframe, hidealllines=true, innertopmargin=0pt]{prop}[thm]{Proposition}
+\newmdtheoremenv[backgroundcolor=grayframe, hidealllines=true, innertopmargin=0pt]{obs}[thm]{Observation}
+
+\theoremstyle{definition}
+
+\newtheorem{examplex}[thm]{\protect\examplename}
+\newenvironment{exmp}
+    {\pushQED{\qed}\renewcommand{\qedsymbol}{$\triangle$}\examplex}
+    {\popQED\endexamplex}
+\providecommand{\examplename}{Example}
+
+\newmdtheoremenv[backgroundcolor=grayframe, hidealllines=true, innertopmargin=0pt]{defn}[thm]{Definition}
+
+\theoremstyle{remark}
+\newtheorem{remark}[thm]{Remark}
+
+\renewcommand{\qedsymbol}{\text{QED}}
+\newcommand{\N}{\mathbb{N}}
+\newcommand{\Z}{\mathbb{Z}}
+\newcommand{\Q}{\mathbb{Q}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\C}{\mathbb{C}}
+\newcommand{\limn}{\lim_{n\to\infty}}
+\newcommand{\oline}[1]{\overline{#1}}
+% \newcommand{\E}{\mathbb{E}}
+\newcommand{\E}{\bm{\mathrm{E}}}
+\newcommand{\F}{\mathcal{F}}
+\newcommand{\Epsilon}{\mathcal{E}}
+\newcommand{\e}{\mathrm{e}}
+\renewcommand{\i}{\mathrm{i}}
+
+\newcommand{\B}{\mathcal{B}}
+\renewcommand{\P}{\mathcal{P}}
+% \renewcommand{\Pr}{\mathbb{P}}
+\renewcommand{\Pr}{\bm{\mathrm{P}}}
+\newcommand{\1}{\bm{\mathrm{1}}}
+\newcommand{\Var}{\operatorname{Var}}
+
+\newcommand{\mnote}[1]{\marginnote{#1}}
+\newcommand{\res}[1]{\operatorname{res}_{#1}}
+
+\DeclareMathOperator{\Real}{Re}
+\DeclareMathOperator{\Imag}{Im}
+\DeclareMathOperator{\Log}{Log}
+\DeclareMathOperator{\Tr}{Tr}
+
+\DeclareMathOperator*{\argmin}{arg\,min}
+\DeclareMathOperator*{\argmax}{arg\,max}
+
+% Command for making column vectors
+% http://tex.stackexchange.com/questions/2705/typesetting-column-vector
+\newcommand{\mat}[1]{\begin{bmatrix}#1\end{bmatrix}} % changed colvec to cvec
+
+\newcommand{\bp}[1]{\bm{#1}}
+\newcommand{\bv}[1]{\vv{\bm{#1}}}
+%\newcommand{\bv*}[2]{\vv*{\bm{#1}}{#2}} TODO figure out how to write this
+\newcommand{\VR}{\vv{\mathbb{R}}}
+\newcommand{\bd}[1]{\bm{\dot{#1}}}
+\newcommand{\bdd}[1]{\bm{\ddot{#1}}}
+\newcommand{\grad}{\vv{\nabla}}
+\newcommand{\Lap}{\Delta}
+\newcommand{\varlap}{\grad^{\, 2}}
+%\newcommand{\Lap}{\mathop{{}\bigtriangleup}\nolimits}
+% Laplacian operator from
+% http://tex.stackexchange.com/questions/76553/correct-symbol-for-the-laplace-operator-delta
+
+% See the followup from:
+% http://tex.stackexchange.com/questions/2705/typesetting-column-vector
+\makeatletter
+\newcommand{\pt}[2][r]{%
+  \gdef\@VORNE{1}
+  \left(\hskip-\arraycolsep%
+    \begin{array}{#1}\vekSp@lten{#2}\end{array}%
+  \hskip-\arraycolsep\right)}
+
+\def\vekSp@lten#1{\xvekSp@lten#1;vekL@stLine;}
+\def\vekL@stLine{vekL@stLine}
+\def\xvekSp@lten#1;{\def\temp{#1}%
+  \ifx\temp\vekL@stLine
+  \else
+    \ifnum\@VORNE=1\gdef\@VORNE{0}
+    \else\@arraycr\fi%
+    #1%
+    \expandafter\xvekSp@lten
+  \fi}
+\makeatother
+
+% This is from another comment
+\def\cvec#1{\left[\vcenter{\halign{\hfil$##$\hfil\cr \spvecA#1;;}}\right]}
+\def\spvecA#1;{\if;#1;\else #1\cr \expandafter \spvecA \fi}
+
+% I like the formatting of the first better, but I need to figure out how
+% to turn the parantheses into square brackets.
+
+% http://tex.stackexchange.com/questions/135944/commath-and-ifinner
+
+\newcommand{\dif}{\mathop{}\!\mathrm{d}}
+\newcommand{\Dif}{\mathop{}\!D}
+
+\newcommand\pd[3][]{\frac{\strut\partial^{#1}#2}{\strut\partial#3^{#1}}}
+\newcommand\tpd[3][]{\tfrac{\partial^{#1}#2}{\partial#3^{#1}}}
+\newcommand\dpd[3][]{\dfrac{\partial^{#1}#2}{\partial#3^{#1}}}
+
+\newcommand{\md}[6]{\frac{\partial^{#2}#1}{\partial#3^{#4}\partial#5^{#6}}}
+\newcommand{\tmd}[6]{\tfrac{\partial^{#2}#1}{\partial#3^{#4}\partial#5^{#6}}}
+\newcommand{\dmd}[6]{\dfrac{\partial^{#2}#1}{\partial#3^{#4}\partial#5^{#6}}}
+
+\newcommand{\od}[3][]{\frac{\dif^{#1}#2}{\dif#3^{#1}}}
+\newcommand{\tod}[3][]{\tfrac{\dif^{#1}#2}{\dif#3^{#1}}}
+\newcommand{\dod}[3][]{\dfrac{\dif^{#1}#2}{\dif#3^{#1}}}
+
+\newcommand{\fullfunc}[5]{%
+    \begin{array}{@{}r@{}r@{}c@{}l@{}}
+    #1 \colon & #2 & {}\longrightarrow{} & #3 \\
+              & #4 & {}\longmapsto{}     & #5
+    \end{array}
+}
+
+\newcommand{\genericdel}[4]{%
+  \ifcase#3\relax
+  #1#4#2\or
+  \bigl#1#4\bigr#2\or
+  \Bigl#1#4\Bigr#2\or
+  \biggl#1#4\biggr#2\or
+  \Biggl#1#4\Biggr#2\else
+  \left#1#4\right#2\fi
+}
+\newcommand{\del}[2][-1]{\genericdel(){#1}{#2}}
+\newcommand{\set}[2][-1]{\genericdel\{\}{#1}{#2}}
+\let\cbr\set
+\newcommand{\sbr}[2][-1]{\genericdel[]{#1}{#2}}
+\let\intoo\del
+\let\intcc\sbr
+\newcommand{\intoc}[2][-1]{\genericdel(]{#1}{#2}}
+\newcommand{\intco}[2][-1]{\genericdel[){#1}{#2}}
+\newcommand{\eval}[2][-1]{\genericdel.|{#1}{#2}}
+\newcommand{\envert}[2][-1]{\genericdel||{#1}{#2}}
+\let\abs\envert
+\newcommand{\sVert}[2][0]{%
+  \ifcase#1\relax
+  \rvert\or\bigr|\or\Bigr|\or\biggr|\or\Biggr
+  \fi
+}
+\newcommand{\enVert}[2][-1]{\genericdel\|\|{#1}{#2}}
+\let\norm\enVert
+
+% \url{http://tex.stackexchange.com/questions/22252/how-to-typeset-function-restrictions}
+
+\newcommand\restr[2]{{% we make the whole thing an ordinary symbol
+  \left.\kern-\nulldelimiterspace % automatically resize the bar with \right
+  #1 % the function
+  %\vphantom{\big|} % pretend it's a little taller at normal size
+  \right|_{#2} % this is the delimiter
+  }}
+
+% Set title and upper header formatting
+\usepackage{titling}
+
+\usepackage{lastpage}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+%\setlength{\headheight}{0pt}
+\setlength{\headheight}{16pt}
+\fancyhf{}
+\fancyhead[RE,LO]{ajk332, jlk368, tsw52, vmt28}
+\fancyhead[RO,LE]{Page \thepage{} of~\pageref{LastPage}}
+\renewcommand{\headrulewidth}{0.5pt}
+\setlength{\droptitle}{-60pt} % remove space at the top of the page
+\posttitle{\par\end{center}} % remove excess spacing after the title
+
+
+% How to name labels, from: http://en.wikibooks.org/wiki/LaTeX/Labels_and_Cross-referencing
+% chap:         chapter
+% sec:          section
+% subsec:       subsection
+% fig:          figure
+% tab:          table
+% eq:           equation
+% lst:          code listing
+% itm:          enumerate list item
+% app:          appendix subsection
+%
+% I add my own labels or theorem environments:
+% thm:          theorem
+% cor:          corollary
+% lemma:        lemma
+% prop:         proposition
+% obs:          observation
+% exmp:         example
+% defn:         definition
+% rem:          remark
+%
+% The label should in general be an underscore for space version of the name of the chapter, section, etc....
