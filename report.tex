@@ -400,10 +400,13 @@ The steps of our implementation are as follows:
 \item Repeat for all $\num{10000}$~runs.
 \end{enumerate}
 
-% TODO figure
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.7\textwidth]{images/viterbi-training}
+  \caption{Viterbi Training}\label{fig:viterbi-training}
+\end{figure}
 
-% TODO \Cref
-The figure gives a pictorial representation of the Viterbi training algorithm and show that the same observation is used for predicting the hidden states and the emission and transition matrices again and again.
+\Cref{fig:viterbi-training} gives a pictorial representation of the Viterbi training algorithm and show that the same observation is used for predicting the hidden states and the emission and transition matrices again and again.
 This process is repeated until convergence.
 
 \paragraph{Results}
@@ -426,9 +429,13 @@ After verifying our methods here, we then proceed to predict the location of the
 \subsection{Finding the $\num{1000}$th Point Using Median and Projections}\label{sec:find-num1000th-point}
 
 The biggest concern in finding the location corresponding to tan angle is that there are multiple of the circle that fall on the same angle.
-As seen in FIGURE, the line determined by angle~$\theta$passes through two regions of the circle.
-% TODO \cref
-% TODO figure
+As seen in \cref{fig:multi-intersect}, the line determined by angle~$\theta$passes through two regions of the circle.
+\begin{wrapfigure}{o}{0.5\textwidth}
+  \begin{center}
+    \includegraphics[width=0.48\textwidth]{images/two-intersection}
+    \caption[multi-intersect]{Multiple Intersections Determined by One Angle}\label{fig:multi-intersect}
+  \end{center}
+\end{wrapfigure}
 
 \subsubsection{Using Labels to Map States to Locations}\label{sec:using-labels-map}
 
