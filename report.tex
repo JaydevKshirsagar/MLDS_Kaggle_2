@@ -124,7 +124,6 @@ In~\cref{sec:baum-welch} we describe our process for estimating these matrices u
 We model this problem as an HMM learning problem, where we need to use and algorithm to learn the transition, emission, and initial probabilities.
 Our main tool is the Baum Welch algorithm.
 
-
 \section{Baum Welch}\label{sec:baum-welch}
 The Baum Welch algorithm is an Expectation Maximization (EM) algorithm for learning the parameters of Hidden Markov Models.
 We use a forward-backwards algorithm to perform inference for the expectation step and then update the HMM parameters in the maximization step.
@@ -182,8 +181,21 @@ And finally the values~$b_{i, k}$ is set to the expected number of times the obs
 
 We implement this algorithm in Python and first test it with a small data set of $2$~states and $3$~observation types.
 We randomize the initial values of our parameters $A$,~$B$, and~$C$ and run for $100$~iterations.
-
-% TODO add figure
+The algorithm proves to be able to predict the states quite accurately.
+\Cref{fig:bw-gamma} shows that the $\gamma$~values showing the probability of being in state $1$~or~$2$ at time~$t$ closely follow the observation values.
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[t]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{images/small-dataset-top}
+    \caption{Initial observations and value of $\gamma_0$ compared to the values after $100$ iterations of Baum-Welch.}\label{fig:small-dataset-top}
+  \end{subfigure}
+  \begin{subfigure}[t]{0.9\textwidth}
+    \includegraphics[width=\textwidth]{images/small-dataset-bottom}
+    \caption{Initial observations and value of $\gamma_1$ compared to the values after $100$ iterations of Baum-Welch.}\label{fig:small-dataset-bottom}
+  \end{subfigure}
+  \caption[bw-gamma]{Change in $\gamma$ value during Baum-Welch.}
+  \label{fig:bw-gamma}
+\end{figure}
 
 \subsubsection{Implementation on the Robot Challenge}\label{sec:impl-robot-challenge}
 
@@ -205,7 +217,7 @@ This experiment fails to produce a suitable result.
 The algorithm was not even able to complete the first iteration of the first run in half an hour.
 Modifications such as reducing the number of iterations, reducing the number of states and observations, and subsampling the time steps to use fewer than all $\num{1000}$~steps for each run fail to produce a suitable reduction in running time.
 
-\subsection{Baum-Welch Using External Pythin Code}
+\subsection{Baum-Welch Using Python Libraries}
 \label{sec:bw-python-libs}
 
 % Link to library:
@@ -222,13 +234,25 @@ As the algorithm involves multiplying together many small probabilities, this mu
 Although the documentation of the library did mention that the Baum Welch algorithm takes the numerical underflow problem into consideration when computing the probability matrix, in our case, the library was unable to proceed beyond the second run without this problem occurring.
 
 
-\subsection{Baum-Welch using Python Libraries}\label{sec:baum-welch-using}
+\subsection{Baum-Welch Using External Python Code}\label{sec:baum-welch-using}
 We continue searching for a library to use for running Baum-Welch and further try running the implementation available here:\\ {\footnotesize\url{http://www.katrinerk.com/courses/python-worksheets/demo-the-forward-backward-algorithm}}.
 The level of performance of this algorithm on the small database previously tests is equivalent to our algorithm.
 However, this program is marginally faster in the bot challenge than our Baum-Welch implementation.
 Numerical underflow, however, continues to be a problem.
 The program performs well for fewer than $\num{70}$~timesteps, but struggles when using $\num{70}$ or more.
-% TODO picture
+
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[h]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{images/external-python-left}
+    \caption{Observations an initial $\gamma$~probability for state~$0$ in the first iteration.}\label{fig:external-python-left}
+  \end{subfigure}
+  \begin{subfigure}[h]{0.48\textwidth}
+    \includegraphics[width=\textwidth]{images/external-python-right}
+    \caption{Observations and initial $\gamma$-probability for state~$0$ in the second iteration. The $\gamma$-values cannot be seen because they fail to be computed.}\label{fig:external-python-right}
+  \end{subfigure}
+  \caption[gamma-external]{Values of $\gamma$ obtained with this code.}\label{fig:gamma-external}
+\end{figure}
 
 \subsubsection{Algorithms}\label{sec:algorithms-python-external-underflow}
 
@@ -356,6 +380,7 @@ The entries in the tables $T_1$~and~$T_2$ are filled in by
   T_i[i, j] &:= \max_k \{T_1[k, j-1]a_{k, i} b_{i, y_1}\},\\
   T_2[i, j] &:= \argmax_k \{T_1[k, j-1] a_{k, i} b_{i, y_1}\}.
 \end{align*}
+% TODO get notation correct
 
 \subsection{Implementation of Viterbi for Predicting States}\label{sec:impl-viterbi-pred}
 
@@ -378,8 +403,13 @@ Note here that we use only $800$ observations (from $200$ to $\num{1000}$) for e
 
 We use three different numbers of states: $16$,~$24$, and~$48$.
 After obtaining the states, the labels for the first $100$~runs are plotted to study if the Viterbi algorithm is successful in determining the states.
-The results are in . % TODO make figure
-The best results are with $24$~states, so we decide to use $24$~states in our final model.
+These results are displayed in \cref{fig:viterbi-states}.
+The most visually clear assignment of states occurs with $24$~states, so we decide to use $24$~states in our final model.
+\begin{figure}[h]
+  \centering
+  \includegraphics[width=0.9\textwidth]{images/viterbi-states}
+  \caption{States formed by the Viterbi algorithm for $16$,~$24$, and~$48$ states.}\label{fig:viterbi-states}
+\end{figure}
 
 \subsection{Implementation of Viterbi Training}\label{sec:impl-viterbi-train}
 
