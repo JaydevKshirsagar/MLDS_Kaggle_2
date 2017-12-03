@@ -4,8 +4,6 @@
 \usepackage{tikz}
 \usetikzlibrary{positioning}
 
-\usepackage[group-separator={,},group-minimum-digits={4}]{siunitx}
-
 \title{Machine Learning for Data Science - Competition 2}
 \author{Antoine Klopocki, Jaydev Kshirsagar, Travis Westura, Vishisht Tiwari\\Kaggle Team Name: Antravishjay}
 \date{\vspace{-5ex}} % vspace hack to remove date without looking into titling package
@@ -121,14 +119,24 @@ that is, each entry~$b_{i, k}$ gives the probability of the observation~$k$ bein
 With $N$~states and $K$~possible observations, $B$ is an ${N \times K}$-matrix.
 In~\cref{sec:baum-welch} we describe our process for estimating these matrices using the Baum Welch algorithm.
 
-\section{Baum Welch}\label{sec:baum-welch}
+\section{Algorithms and Implementation}\label{sec:algo-and-impl}
 
+We model this problem as an HMM learning problem, where we need to use and algorithm to learn the transition, emission, and initial probabilities.
+Our main tool is the Baum Welch algorithm.
+
+
+\section{Baum Welch}\label{sec:baum-welch}
 The Baum Welch algorithm is an Expectation Maximization (EM) algorithm for learning the parameters of Hidden Markov Models.
 We use a forward-backwards algorithm to perform inference for the expectation step and then update the HMM parameters in the maximization step.
 We thereby find the maximum likelihood estimate of the parameters of the model.
 The algorithm takes as parameters a triple~$(A, B, \pi)$, where $A$~and~$B$ are the transition and emission matrices and $\pi$ is the initial state distribution, that is, the probability of the first state being state~$i$ is given by ${\pi_i = \Pr(S_1 = i)}$.
 
-\subsection{Explanation of Algorithm}\label{sec:expl-algor}
+\subsection{Our Implementation of Baum-Welch}\label{sec:expl-algor}
+
+To achieve a high accuracy, we develop our own Baum-Welch algorithm.
+After using the basic implementation, we tweak the alogrithm to achieve better results.
+
+\subsubsection{Description of Algorithm}\label{sec:description-bw}
 
 Let $N$ be the number of states, $K$ be the number of observations, and $T$ be the number of time steps.
 
@@ -170,12 +178,99 @@ And finally the values~$b_{i, k}$ is set to the expected number of times the obs
   b_{i,k} := \frac{\sum_{t=1}^T \1_{X_t = k}\gamma_i(t)}{\sum_{t=1}^T \gamma_i(t)}
 \end{equation*}
 
-\subsection{Numerical and Running Time Issues}\label{sec:numer-runn-time}
+\subsubsection{Implementation on a small dataset}\label{sec:impl-small-data}
 
-\subsection{Choice of Parameters}\label{sec:choice-parameters}
+We implement this algorithm in Python and first test it with a small data set of $2$~states and $3$~observation types.
+We randomize the initial values of our parameters $A$,~$B$, and~$C$ and run for $100$~iterations.
+
+% TODO add figure
+
+\subsubsection{Implementation on the Robot Challenge}\label{sec:impl-robot-challenge}
+
+After testing our implementation with a small parameter size, we attempt to use it to determine the HMM parameters of the robot challenge.
+Because the robot moves in a continuous space, we discretize the space so that our algorithm, which accepts discrete inputs, can handle it.
+We first tried using large parameters, setting the number of states~${N = \num{3000}} and the number of observations~${K = \num{1570}}.
+We round all observation angles to $3$~decimal places to fit our discretization model.
+The algorithm runs as follows
+\begin{enumerate}
+  \item Randomly initialize the transtiion, emission, and initial probability matrices using $\num{3000}$~states and $\num{1570}$~observations.
+  \item Use the Baum Welch algorithm on the first run of the robot with a maximum of $\num{100}$ iterationsl
+  \item Obtain the new transition, emission, and initial probability matrices as the result.
+  \item Repeat for all $\num{10000}$~runs, updating the parameters with each run.
+\end{enumerate}
+
+\paragraph{Results}
+
+This experiment fails to produce a suitable result.
+The algorithm was not even able to complete the first iteration of the first run in half an hour.
+Modifications such as reducing the number of iterations, reducing the number of states and observations, and subsampling the time steps to use fewer than all $\num{1000}$~steps for each run fail to produce a suitable reduction in running time.
+
+\subsection{Baum-Welch Using External Pythin Code}
+\label{sec:bw-python-libs}
+
+% Link to library:
+% http://hidden-markov.readthedocs.io/en/latest/functions.html#baum-welch-algorithm
+
+With our own implementation failing to yield viable results on the data set, we next use the Python library \texttt{\small hidden\_markov}, available here: {\small\url{http://hidden-markov.readthedocs.io/en/latest/functions.html#baum-welch-algorithm}}.
+We follow the same steps for training the model: randomly initialize the parameters, run the algorithm on one run at a time to update the parameters, and use the updated parameters for the number run.
+
+\paragraph{Results}
+
+However, we again face problems with running time when using this library, with convergence taking over an hour even for small parameter sizes and subsampling of the timesteps.
+Further we encountered numerical underflow with this implementation.
+As the algorithm involves multiplying together many small probabilities, this multiplication produces smaller and smaller numbers, eventually yielding $0$ despite the multiplication occuring between nonzero numbers.
+Although the documentation of the library did mention that the Baum Welch algorithm takes the numerical underflow problem into consideration when computing the probability matrix, in our case, the library was unable to proceed beyond the second run without this problem occurring.
+
+
+\subsection{Baum-Welch using Python Libraries}\label{sec:baum-welch-using}
+We continue searching for a library to use for running Baum-Welch and further try running the implementation available here:\\ {\footnotesize\url{http://www.katrinerk.com/courses/python-worksheets/demo-the-forward-backward-algorithm}}.
+The level of performance of this algorithm on the small database previously tests is equivalent to our algorithm.
+However, this program is marginally faster in the bot challenge than our Baum-Welch implementation.
+Numerical underflow, however, continues to be a problem.
+The program performs well for fewer than $\num{70}$~timesteps, but struggles when using $\num{70}$ or more.
+% TODO picture
+
+\subsubsection{Algorithms}\label{sec:algorithms-python-external-underflow}
+
+The term numerical underflow is used when the result of a calculation is smaller than the smallest minimum value that a computer can store in memory.
+In Baum-Welch numerical underflow can occur in very large observations sequences because of the multiplication of probabilities.
+A description of this problem and possible implementations to overcome it are described in this write-up: {\footnotesize\url{https://pdfs.semanticscholar.org/54dc/c2a758e7fa34b8c2ef19826f39f16c4d1731.pdf}}.
+
+One solution involves using the $\log$ of probabilities to convert the multiplications into addition.
+This process succeeds with the $\alpha$'s and $\beta$'s computed in the forwards-backwards algorithm, but not for the $\gamma$'s we compute as temporary variables, as they are already a sum of the $\alpha$'s.
+Hence to avoid underflow, values of $\alpha$ and $\beta$ are normalized.
+We compute
+\begin{equation*}
+  \hat{\alpha} = \frac{1}{\sum_{i=0}^N \alpha_i(t)}, \qquad \hat{\beta} = \frac{1}{\sum_{i=0}^{N-1}\beta_i(t)}
+\end{equation*}
+where $\hat{\alpha}$ and $\hat{\beta}$ denote the normalized values.
+The $\gamma$ values are calculated as before, since the normalizers are cancelled.
+But the $\xi$ values now have a slightly different formula.
+\begin{align*}
+  \gamma_i(t) &= \frac{\hat{\alpha}_i(t) \hat{\beta}_i(t)}{\sum_{j=1}^N \hat{\alpha}_j(t) \hat{\beta}_j(t)},
+  \xi_{i, j}(t) &= \frac{\hat{\alpha}_i(t) a_{i, j} b_{j, t+1} \eta_{t+1} \hat{\beta}_{j}(t+1)}{\sum_{j=1}^N \hat{\alpha}_j(t) \hat{\beta}_j(t)} = \frac{\gamma_i(t) a_{i, j} b_{j, t+1} \eta_{t+1} \hat{\beta}_j(t+1)}{\hat{\beta}_i(t)}.
+\end{align*}
+% TODO figure out $\eta$ notation
+
+We use this algorithm we same way we have the previous implementations: randomly initialize the parameters, train on the first run to obtain new parameter values, and continue using the algorithm to update hte parameters for all $\num{10000}$~runs.
+
+\paragraph{Results}
+
+Unfortunately the normalization steps again reduce the efficiency of this Python code, and it again takes an unreasonably long time to complete the iterations.
+Again we try various modifications to the parameters, such as reducing their sizes and subsampling time steps, but we still cannot reach a reasonable level of efficiency with our code.
+
+\subsection{Baum-Welch in Matlab}\label{sec:baum-welch-matlab}
+
+With unsuccessful results form Python libraries, we next use the \texttt{\small hmmtrain} function of Matlab.
+This function uses the observation sequence, transition matrix, and emission matrix to learn about the HMM and to predict the new transition and emission matrices.
+This implementation is considerably faster than the Python implementations we used.
+The transition and emission matrices converges about processing the first $\num{200}$ runs and took only about $\num{3}$~hours to run.
+
+\subsubsection{Implementation and Choice of Parameters}\label{sec:choice-parameters}
+
 
 One way to initialize the parameters $A$,~$B$, and $\pi$ of the Baum Welch algorithm is to do so randomly.
-However, as noted in \cref{sec:numer-runn-time}, doing so means the algorithm takes a long time to converge.
+However, doing so means the algorithm takes a long time to converge.
 By choosing initialization parameters close to what we expect the algorithm's output to be, we can decrease the number of steps that the algorithm requires to converge.
 
 To initialize the transition matrix, we take advantage of the fact that the robot is moving rather slowly around the circle.
@@ -200,7 +295,7 @@ In \cref{fig:init-trans-pos} we show how we pick locations to guide our construc
   \caption{Initial state positions for different numbers of states.}\label{fig:init-trans-pos}
 \end{figure}
 We pick points along the robot's path and choose transition probabilities either that the robot stays in the same state or moves to the next state.
-For example, for $4$~states, our transition matrix is
+For example, for $4$~states, our initial transition matrix is
 \begin{equation*}
   \begin{bmatrix}
     0.75 & 0.25 & 0    & 0\\
@@ -209,20 +304,28 @@ For example, for $4$~states, our transition matrix is
     0.25 & 0    & 0    & 0.75
   \end{bmatrix}
 \end{equation*}
-% TODO observations of this matrix as we run our algorithm
-
-% TODO emission matrix numerical issues
 
 Further, we decide not to use any of the first $\num{200}$~time steps in our model.
 The robot starts at~${(1.5, 1.5)}$, but by the time we start receiving labels at time~$\num{201}$, the robot has already reached its general orbit around its path.
 We don't have any labels for the first~$\num{200}$ time steps, so using these values ends up making it more difficult for our algorithms to estimate the behavior of the robot at the tail of its runs, which is the behavior in which we are most interested to predict the $\num{1001}$st location.
 When we try using these initial observations, our Baum Welch algorithm outputs a state to keep track of the values in the middle.
-\Cref{fig:state-in-the-middle} shows how these initial observations result in points being assigned to a state that does not correspond to a location in the tail of the robot's path.
+\Cref{fig:state-in-the-middle} shows how these initial observations result in points being assigned to a state that does not correspond to a useful location in the tail of the robot's path, but instead results in just a few points being assigned to this state instead of to a more reasonable location around the ring of the circle.
 \begin{wrapfigure}{o}{0.5\textwidth}
   \centering
   \includegraphics[width=0.48\textwidth]{images/state-in-the-middle}
   \caption[middle]{The green points are assigned to a state representing the middle of the circle through which the robot finishes moving by time~$200$.}\label{fig:state-in-the-middle}
 \end{wrapfigure}
+
+We also attempt to initialize the emission matrix.
+After placing the initial state centers along the arcs of the robot's path, we assign each labeled point to the closest state based on the Euclidean distance between the point and the state's center.
+Since we discretize the angles, we now determine the number of labeled points in each observation angle out of the total number of points assigned to the state.
+This process gives us the initial values of our emission matrix.
+Again, many of the values of this matrix are $0$, since a state that corresponds to the bottom right of the circle will never emit observations that correspond to angles close to~$\frac{\pi}{2}$.
+
+However, this initialization of the emission matrix does not produce good results.
+The large number of $0$'s present in the matrix tend to result in numerical errors when running the Matlab implementation.
+We attempt to overcome this issue by adding an extremely small value, such as $0.00000001$, to the entries of the matrix, but we were unable to remove completely the numerical issues.
+Randomly initializing the emission matrix does not create these numerical issues, so in our final implementation we use the randomly initialized matrix.
 
 \section{Viterbi}\label{sec:viterbi}
 
@@ -231,6 +334,10 @@ When we try using these initial observations, our Baum Welch algorithm outputs a
 \section{Mapping States to Locations}\label{sec:mapp-stat-locat}
 
 % how we use labels to map states to locations
+
+\section{Final Model}\label{sec:final-model}
+
+\section{Conclusions}\label{sec:conclusions}
 
 \end{document}
 
