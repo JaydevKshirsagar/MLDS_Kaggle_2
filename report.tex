@@ -599,7 +599,7 @@ Therefore, another way to guess the $\num{1001}$st point knowing the $\num{1000}
 \end{align*}
 Note, depending on the signs of $x_{\num{1000}}$~and~$y_{\num{1000}}$, $\arctan \Big( \frac{y_{\num{1000}}}{x_{\num{1000}}} \Big)$ may need to be incremented by~$\pi$.
 \Cref{fig:shifted-angles} shows our best guesses of the $\num{1000}$th positions for the final $\num{4000}$~runs in blue and our computed guess of the $\num{1001}$st position in red.
-Implementing this strategy decreased our score error by~$0.01$.
+Implementing this strategy decreased our score error by~$0.01$ over the strategy of \cref{sec:find-num1001st-point}.
 \begin{figure}[h]
   \centering
   \includegraphics[width=0.6\textwidth]{images/AK8}
@@ -607,6 +607,15 @@ Implementing this strategy decreased our score error by~$0.01$.
 \end{figure}
 
 \section{Final Model}\label{sec:final-model}
+
+For our final model we use the Matlab function \texttt{\small{}hmmtrain} as our implementation of Baum-Welch, as described in \cref{sec:baum-welch-matlab}.
+We use the manually constructed transition matrix and randomly initialized emission matrix as described in \cref{sec:choice-parameters}, using $24$~states and $1570$~discrete angles.
+We use the final $800$~timesteps of each run, avoid the first $200$~steps during which the robot may not have reached its tail behavior.
+Then we use Matlab's \texttt{\small{}hmmviterbi} function, as explained in \cref{sec:viterbi}, to determine the most likely states given the observation angles and matrices output from \texttt{\small{}hmmtrain}.
+Finally we use the method of \cref{sec:finding-1001-angles} to determine the location of the $\num{1001}$st point.
+Our final model achieves an accuracy score of~$\bm{0.26233}$.
+
+% TODO how to use BW if it runs better
 
 \section{Conclusions}\label{sec:conclusions}
 
