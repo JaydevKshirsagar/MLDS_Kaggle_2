@@ -17,15 +17,15 @@
 \section{Introduction}\label{sec:introduction}
 
 In this competition we are given a robot that is moving around in~$\R^2$.
-The robot makes $\num{10000}$~runs, and for $\num{1000}$~timesteps we observe the angle~$\theta$ that the robot's position makes with the $x$-axis.
-But are not given the robot's precise ${(x, y)}$~location, and the angle itself does not determine directly the robot's position.
-The true position could be anywhere along the line passing through the origin and making angle~$\theta$ with the $x$-axis.
+The robot makes $\num{10000}$~runs, and for $\num{1000}$~timesteps we observe the angle~$\theta'$ that the robot's position makes with the $x$-axis.
+But we are not given the robot's precise ${(x, y)}$~location, and the angle itself does not determine directly the robot's position.
+The true position could be anywhere along the line determined by $\theta'$.
 Our task is to determine the robot's ${(x, y)}$-position on the $\num{1001}$st~timestep as accurately as possible, with accuracy determined by Root Mean Square Error.
 Our methods achieve an accuracy score of~$\bm{0.26233}$.
 
 In this report we first give an overview of our model, how it fits the problem, and how we design the algorithms that we use.
 We explain the inputs our algorithms take and how we adjusted the input parameters, how we use both the labeled and unlabeled points in the model, and how our failures guided the further development of our algorithms and their implementations.
-Throughout we include images and explanations of the visualizations we use as we develop our final model.
+Throughout the report we include images and explanations of the visualizations we use as we develop our final model.
 
 \section{Visualization and Problem Description}\label{sec:vis-and-prob-desc}
 
@@ -63,7 +63,7 @@ Since there are two unknowns $a$~and~$b$, we pick two labeled points and solve t
 \end{figure}
 We use the points from run~$1$ time steps $205$~and~$216$.
 Solving the system of equations yields the position of the angle observer as~$(-1.5, -1.5)$ in the ${(O, x, y)}$ coordinate system.
-As our intuiting about the robot's movement is that it follows a roughly circular orbit centered at ${(x, y) = (0, 0)}$, we introduce the polar coordinates $\theta$ and $r$ in the system ${(O, x, y)}$.
+As our intuition about the robot's movement is that it follows a roughly circular orbit centered at ${(x, y) = (0, 0)}$, we introduce the polar coordinates $\theta$ and $r$ in the system ${(O, x, y)}$.
 Using this position, we consider the observation angles as being measured at~$(0, 0)$.
 We summarize the conventions in \cref{fig:conventions}.
 
@@ -136,7 +136,7 @@ We depict latent variables as shaded vertices.
   \caption{Hidden Markov Model}\label{fig:hmm}
 \end{figure}
 
-While an HMM seemed to be the most appropriate way of modelling the problem, one essential difference that exists between the target problem and the typical HMM use cases is that the hidden as well as the observed random variables continuous, unlike the discrete nature in case of other HMM applications.
+While an HMM seemed to be the most appropriate way of modelling the problem, one essential difference that exists between the target problem and the typical HMM use cases is that the hidden as well as the observed random variables are continuous, unlike the discrete nature in case of other HMM applications.
 We decided to use discretization to overcome this difficulty.
 But this method is subject to the error that is introduced because of the quantization, and consequently larger steps give worse accuracy.
 We searched for prior work done for developing HMM variants that deal with continuous random variables.
@@ -186,25 +186,25 @@ In~\cref{sec:baum-welch} we describe our process for estimating these matrices u
 We model this problem as an HMM learning problem, where we need to use and algorithm to learn the transition, emission, and initial probabilities.
 Our main tool is the Baum Welch algorithm.
 
-\section{Baum Welch}\label{sec:baum-welch}
+\subsection{Baum Welch}\label{sec:baum-welch}
 The Baum Welch algorithm is an Expectation Maximization (EM) algorithm for learning the parameters of Hidden Markov Models.
 We use a forward-backwards algorithm to perform inference for the expectation step and then update the HMM parameters in the maximization step.
 We thereby find the maximum likelihood estimate of the parameters of the model.
 The algorithm takes as parameters a triple~$(A, B, \pi)$, where $A$~and~$B$ are the transition and emission matrices and $\pi$ is the initial state distribution, that is, the probability of the first state being state~$i$ is given by ${\pi_i = \Pr(S_1 = i)}$.
 
-\subsection{Our Implementation of Baum-Welch}\label{sec:expl-algor}
+\subsubsection{Our Implementation of Baum-Welch}\label{sec:expl-algor}
 
 To achieve a high accuracy, we develop our own Baum-Welch algorithm.
 After using the basic implementation, we tweak the alogrithm to achieve better results.
 
-\subsubsection{Description of Algorithm}\label{sec:description-bw}
+\paragraph{Description of Algorithm}
 
 Let $N$ be the number of states, $K$ be the number of observations, and $T$ be the number of time steps.
 
 For the forward procedure we calculate ${\alpha_i(t) = \Pr(X_1 = x_1, X_2 = x_2, \ldots, X_t = x_t, S_t = i \mid A, B, \pi)}$, which is the probability of obtaining observations~${y_1, y_2, \ldots, y_t}$ and being in state~$i$ at time~$t$.
 We recursively compute
 \begin{align*}
-  \alpha_i (t) &:= \pi_i b_{i, x_1},\\
+  \alpha_i (1) &:= \pi_i b_{i, x_1},\\
   \alpha_i (t + 1) &:= b_{i, x_{t+1}} \sum_{j=1}^N \alpha_j(t) a_{j, i}.
 \end{align*}
 For the backward procedure we calculate ${\beta_i(t) = \Pr(X_{t+1} = x_{t+1}, \ldots, X_T = x_T \mid S_t = i, A, B, \pi)}$, the probability of the observations ${x_{t+1}, \ldots, x_T}$ occurring given the $t$th~state is state~$i$.
@@ -263,12 +263,12 @@ The algorithm proves to be able to predict the states quite accurately.
 
 After testing our implementation with a small parameter size, we attempt to use it to determine the HMM parameters of the robot challenge.
 Because the robot moves in a continuous space, we discretize the space so that our algorithm, which accepts discrete inputs, can handle it.
-We first tried using large parameters, setting the number of states~${N = \num{3000}} and the number of observations~${K = \num{1570}}.
+We first tried using large parameters, setting the number of states~${N = \num{3000}}$ and the number of observations~${K = \num{1570}}$.
 We round all observation angles to $3$~decimal places to fit our discretization model.
 The algorithm runs as follows
 \begin{enumerate}
-  \item Randomly initialize the transtiion, emission, and initial probability matrices using $\num{3000}$~states and $\num{1570}$~observations.
-  \item Use the Baum Welch algorithm on the first run of the robot with a maximum of $\num{100}$ iterationsl
+  \item Randomly initialize the transition, emission, and initial probability matrices using $\num{3000}$~states and $\num{1570}$~observations.
+  \item Use the Baum Welch algorithm on the first run of the robot with a maximum of $\num{100}$ iterations.
   \item Obtain the new transition, emission, and initial probability matrices as the result.
   \item Repeat for all $\num{10000}$~runs, updating the parameters with each run.
 \end{enumerate}
@@ -444,14 +444,14 @@ Randomly initializing the emission matrix does not create these numerical issues
 This implementation produces the best result, and we are able to achieve distinct states in a reasonable amount of computation time.
 In the final mode, the Baum-Welch Matlab code is used to compute the transition and emission matrices before using the Viterbi algorithm to determine the most likely states.
 
-\section{Viterbi}\label{sec:viterbi}
+\subsection{Viterbi}\label{sec:viterbi}
 
 Viterbi is a dynamic programming algorithm that is used to predict the most likely hidden states.
 However, Viterbi training can also be used for the training of a HMM.
 We consider Viterbi training as an alternative to Baum-Welch training, which are computationally slow.
 We describe both uses of Viterbi in this section.
 
-\subsection{Algorithm}\label{sec:algorithm-viterbi}
+\subsubsection{Algorithm}\label{sec:algorithm-viterbi}
 
 The algorithm is used for predicting the hidden states for a path ${X = (x_1, x_2, \ldots, x_T)}$.
 The hidden states are denoted as ${x_n \in S = \{S_1, s_2, \ldots, s_K\}}$, and the observations are denoted by ${Y = (y_1, y_2, \ldots, y_T) \in {\{1, 2, \ldots, N\}}^T}$.
@@ -470,7 +470,7 @@ The entries in the tables $T_1$~and~$T_2$ are filled in by
 \end{align*}
 % TODO get notation correct
 
-\subsection{Implementation of Viterbi for Predicting States}\label{sec:impl-viterbi-pred}
+\subsubsection{Implementation of Viterbi for Predicting States}\label{sec:impl-viterbi-pred}
 
 Because Viterbi is used for predicting states, it is the obvious next step after predicting the transition and emission matrices.
 Hence after predicting the probabilities with Baum-Welch, we use this algorithm to predict the states.
@@ -538,6 +538,12 @@ We were unable to find a suitable solution to this algorithm after many trials, 
 
 \section{Finding the Location}\label{sec:finding-the-locat}
 
+\begin{wrapfigure}{i}{0.3\textwidth}
+  \begin{center}
+    \includegraphics[width=0.28\textwidth]{images/two-intersection}
+    \caption[multi-intersect]{Multiple Intersections Determined by One Angle}\label{fig:multi-intersect}
+  \end{center}
+\end{wrapfigure}
 After finding the right state, transition matrix, and emission matrix, the next step is to find the locations corresponding to the states.
 The project requires finding the location at the $\num{1001}$th~point.
 However, because the bot does not move a large distance in every time step, we began by submitting simply the location of the $\num{1000}$th~step to check the accuracy of our methods.
@@ -546,13 +552,7 @@ After verifying our methods here, we then proceed to predict the location of the
 
 \subsection{Finding the $\num{1000}$th Point Using Median and Projections}\label{sec:find-num1000th-point}
 
-\begin{wrapfigure}{o}{0.3\textwidth}
-  \begin{center}
-    \includegraphics[width=0.28\textwidth]{images/two-intersection}
-    \caption[multi-intersect]{Multiple Intersections Determined by One Angle}\label{fig:multi-intersect}
-  \end{center}
-\end{wrapfigure}
-The biggest concern in finding the location corresponding to tan angle is that there are multiple of the circle that fall on the same angle.
+The biggest concern in finding the location corresponding to tan angle is that there are multiple sections of the circle that fall on the same angle.
 As seen in \cref{fig:multi-intersect}, the line determined by angle~$\theta$ passes through two regions of the circle.
 
 \subsubsection{Using Labels to Map States to Locations}\label{sec:using-labels-map}
