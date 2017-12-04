@@ -3,6 +3,7 @@
 \usepackage{mystyle}
 \usepackage{tikz}
 \usetikzlibrary{positioning}
+\setlength{\belowcaptionskip}{-10pt} % https://tex.stackexchange.com/questions/23313/how-can-i-reduce-padding-after-figure
 
 \title{Machine Learning for Data Science - Competition 2}
 \author{Antoine Klopocki, Jaydev Kshirsagar, Travis Westura, Vishisht Tiwari\\Kaggle Team Name: Antravishjay}
@@ -19,17 +20,31 @@ In this competition we are given a robot that is moving around in~$\R^2$.
 The robot makes $\num{10000}$~runs, and for $\num{1000}$~timesteps we observe the angle~$\theta$ that the robot's position makes with the $x$-axis.
 But are not given the robot's precise ${(x, y)}$~location, and the angle itself does not determine directly the robot's position.
 The true position could be anywhere along the line passing through the origin and making angle~$\theta$ with the $x$-axis.
-
 Our task is to determine the robot's ${(x, y)}$-position on the $\num{1001}$st~timestep as accurately as possible, with accuracy determined by Root Mean Square Error.
 Our methods achieve an accuracy score of~$\bm{0.26233}$.
 
-\section{Determining the Observer's Position}\label{sec:determ-observ-posit}
+In this report we first give an overview of our model, how it fits the problem, and how we design the algorithms that we use.
+We explain the inputs our algorithms take and how we adjusted the input parameters, how we use both the labeled and unlabeled points in the model, and how our failures guided the further development of our algorithms and their implementations.
+Throughout we include images and explanations of the visualizations we use as we develop our final model.
 
-The competition specification describes the robot moving in the first quadrant, and the angles given in the observations file contain the angle made between the robot's location~${(x_{r, t}, y_{r, t})}$ and the $x$-axis.
-However, the coordinates given in the label file contain coordinates with negative values.
-We'll denote to these values as~${(x_{r, t}', y_{r, t}')}$.
-Since these values are negative, the observer of the locations is positioned in the first quadrant as well, and we call it's location~${(a, b)}$.
-First we need to determine the coordinates of this point so that we can match up the data in the observation and label files.
+\section{Visualization and Problem Description}\label{sec:vis-and-prob-desc}
+
+\subsection{Conventions}\label{sec:conventions}
+
+The competition specification describes the robot moving in the first quadrant, and the angles given in the observations file contain the angle made between the robot's location~${(x_{r, t}, y_{r, t})}$ and the horizontal axis passing through a point at which an observer measures the angle the robot's position makes with that axis.
+We differentiate between two coordinate systems in our notation using the following conventions:
+\begin{wrapfigure}{o}{0.46\textwidth}
+  \centering
+  \includegraphics[width=0.45\textwidth]{images/AK1}
+  \caption{Locations of the robot given as labels.}\label{fig:label-locations}
+\end{wrapfigure}
+\begin{itemize}[topsep=2pt]
+\item ${(O, x, y)}$ is the system of coordinates of the robot, equal to the coordinates given by the labels.
+\item ${(O', x', y')}$ is the system of coordinates of the angle observer, in which the robot makes an angle~$\theta$ to the axis~$X'$.
+\end{itemize}
+What is the relation between ${(O, x, y)}$ and ${(O', x', y')}$?
+The first visualization step is to plot the labels, as in \cref{fig:label-locations}.
+The robot appears to follow an almost circular orbit, with a few kinks, of radius~$1$ centered at~$(0, 0)$.
 
 Consider a labeled point~${(x_{r, t}', y_{r, t}')}$.
 The angle~$\theta$ that this point forms with the $x$-axis is given by
@@ -41,21 +56,55 @@ Since there are two unknowns $a$~and~$b$, we pick two labeled points and solve t
 \begin{equation*}
   \tan\theta_1 = \frac{b + y_{r_1, t_1}'}{a + x_{r_1, t_1}'}, \quad \tan\theta_2 = \frac{b + y_{r_2, t_2}'}{a + x_{r_2, t_2}'}.
 \end{equation*}
-We use the points from run~$1$ time steps $205$~and~$216$.
-Solving the system of equations yields the position of the location observer as~$(1.5, 1.5)$.
-Using this position, we consider the observation angles as being measured at~$(0, 0)$.
-
-Further, we can use the $\num{600000}$ labeled points to gain intuition about the robot's movement.
-We compute the average of radius of these points to $(1.5, 1.5)$ to see that this average is approximately~$1$.
-Plotting the labeled points in \cref{fig:label-locations}, we see that the robot is moving roughly in a circle of radius~$1$ centered at~$(1.5, 1.5)$, with kinks occurring at the top, bottom, left, and right of the circle.
 \begin{figure}[h]
   \centering
-  \includegraphics[width=0.5\textwidth]{images/label-locations}
-  \caption{Locations of the robot given as labels.}\label{fig:label-locations}
+  \includegraphics[width=0.40\textwidth]{images/AK2}
+  \caption{Conventions of our two coordinate systems.}\label{fig:conventions}
 \end{figure}
+We use the points from run~$1$ time steps $205$~and~$216$.
+Solving the system of equations yields the position of the angle observer as~$(-1.5, -1.5)$ in the ${(O, x, y)}$ coordinate system.
+As our intuiting about the robot's movement is that it follows a roughly circular orbit centered at ${(x, y) = (0, 0)}$, we introduce the polar coordinates $\theta$ and $r$ in the system ${(O, x, y)}$.
+Using this position, we consider the observation angles as being measured at~$(0, 0)$.
+We summarize the conventions in \cref{fig:conventions}.
 
-Every run starts the robot at~$(1.5, 1.5)$.
-But we are not given any labels for the first $200$~runs, and we see that the robot stabilizes into its standard path by the time we start obtaining labels for its location.
+\subsection{Visualization of Consecutive Labels}\label{sec:visu-cons-labels}
+
+To gain more intuition about the behavior of the robot, we further focused on the consecutive labels, that is, the labels that occur in the same run at two consecutive time steps.
+We found $\num{68666}$~consecutive labels out of $\num{600000}$~labels, which enable us to form a representation of their behavior.
+For each such consecutive labeled point~${(x, y)}$, we compute the polar representation~${(r, \theta)}$ and plot histograms of their distributions.
+Further, we calculate also ${\dif r}$ and~${\dif \theta}$, which are the differences between the respective values of the consecutive points.
+These histograms are given in \cref{fig:histograms}.
+\begin{figure}[h]
+  \centering
+  \begin{subfigure}[h]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{images/AK3}
+    \caption{$r$}\label{fig:hist-r}
+  \end{subfigure}
+  \begin{subfigure}[h]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{images/AK4}
+    \caption{$\theta$}\label{fig:hist-theta}
+  \end{subfigure}\\[2ex]
+  \begin{subfigure}[h]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{images/AK5}
+    \caption{$\dif r$}\label{fig:hist-dr}
+  \end{subfigure}
+  \begin{subfigure}[h]{0.4\textwidth}
+    \includegraphics[width=\textwidth]{images/AK6}
+    \caption{$\dif \theta$}\label{fig:hist-dtheta}
+  \end{subfigure}
+  \caption[histograms]{Histograms of $r$,~$\theta$,~${\dif r}$, and~${\dif \theta}$.}\label{fig:histograms}
+\end{figure}
+From these observations, we infer a great deal of useful information about the problem:
+\begin{itemize}
+\item The robot is turning counterclockwise (increasing values of $\theta$).
+  From \cref{fig:hist-dtheta}, however, there are some rare cases where ${\dif \theta}$ is negative, corresponding to steps where the robot turned clockwise.
+\item ${\dif \theta}$ seems to follow a normal distribution of mean~$0.125$ and variance~$0.2$.
+  We make an assumption that ${\dif \theta}$ is independent from both $r$ and from $\theta$ (symmetry of revolution), that is, the $\theta_{t+1}$ of step ${t+1}$ is chosen form a normal distribution of mean~${\theta_t + 0.125}$ and variance~$0.2$.
+\item ${\dif r}$ seems to be a bit more complicated.
+  It most cases it seems to follow a normal distribution of mean~$0.0231$, and when $\theta$ has a certain value ($\theta \approx 0 \bmod \frac{\pi}{2}$), ${\dif r}$ is negative (there is a kink in the path and a jump to a lower $r$).
+\end{itemize}
+Having normal distributions is consistent with the fact that we know the bot is moving continuously in~$\R^2$.
+We expand upon these observations in \cref{sec:finding-1001-angles}.
 
 \section{Hidden Markov Models (HMM's)}\label{sec:hidden-markov-models}
 
@@ -106,6 +155,7 @@ We discretize this space in order to use a Hidden Markov Model.
 We divide the first quadrant into $K$~sectors, ${\textstyle \big[0, \frac{1}{K}\frac{\pi}{2}\big), \big[\frac{1}{K}\frac{\pi}{2}, \frac{2}{K}\frac{\pi}{2}\big), \ldots, \big[\frac{K - 1}{K}\frac{\pi}{2}, \frac{\pi}{2}\big)}$, where $K$ is a parameter that we choose.
 The observation, rather than being a value in $\big(0, \frac{\pi}{2}\big)$, is instead given by an integer~${1, 2, \ldots, K}$ representing the segment of the interval in which the angle lies.
 As a further refinement of this technique, we find the minimum and maximum angles that occur in the observations file, $\theta_{\text{min}}$~and~$\theta_{\text{max}}$, and divide the shorter interval~$[\theta_{\text{min}}, \theta_{\text{max}}]$.
+
 \begin{wrapfigure}{o}{0.5\textwidth}
   \begin{center}
     \includegraphics[width=0.48\textwidth]{images/angle-discrete}
@@ -114,7 +164,7 @@ As a further refinement of this technique, we find the minimum and maximum angle
 \end{wrapfigure}
 
 Given an observation and the corresponding state, we need to map the state to the robot's position.
-We outline a procedure for doing this in . % TODO give section number when the section is written
+We outline a procedure for doing this in \cref{sec:using-labels-map}.
 
 Given the observations, we need to estimate the transition matrix~$A$ and emission matrix~$B$ of the Hidden Markov Model.
 The transition matrix is defined by
@@ -509,6 +559,8 @@ We scan the row in Transition probability matrix corresponding this State to loc
 This is the State for which the Transition probability from $S_{\num{1000}}$ is maximum.
 Once the value of $S_{\num{1001}}$ is identified, the Emission probability matrix is looked up to identify the most likely value of the variable corresponding to that state.
 The process of doing this is similar: scan the row in the Emission probability matrix corresponding to $S_{\num{1001}}$, to locate the observation value that has highest emission probability.
+
+\subsection{Finding the $\num{1001}$st Point Using Results From \Cref{sec:visu-cons-labels}.}\label{sec:finding-1001-angles}
 
 \section{Final Model}\label{sec:final-model}
 
